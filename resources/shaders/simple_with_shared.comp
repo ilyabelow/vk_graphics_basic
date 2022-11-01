@@ -1,0 +1,77 @@
+#version 430
+
+layout( local_size_x = 64 ) in;
+
+layout( push_constant ) uniform params {
+  uint len;
+} PC;
+
+layout(std430, binding = 0) buffer a 
+{
+    float A[];
+};
+
+layout(std430, binding = 1) buffer b
+{
+    float B[];
+};
+
+const uint w_r = 3; // 70 = 64 + 3 + 3
+shared float local[70]; // too bad we cannot allocate this dynamically with different sizes of w_r
+
+
+void copy() {
+    // Copy window from global memory to shared
+    // warning: right border on the rightmost group = PAIN
+
+    uint idx = gl_GlobalInvocationID.x;
+    uint lidx = gl_LocalInvocationID.x;
+    uint loc = lidx + w_r; // position in local buffer without left border
+
+    // amount of inbound threads
+    uint group_size = (gl_WorkGroupID.x < gl_NumWorkGroups.x - 1) ? gl_WorkGroupSize.x : (PC.len - 1) % gl_WorkGroupSize.x + 1;
+    if (idx < PC.len) {
+        local[loc] = A[idx]; // every thread copies its own value
+    }
+
+    // first w_r threads fill left border
+    if (lidx < w_r) {
+        if (idx >= w_r) { // overlap is in the group to the left
+            local[loc - w_r] = A[idx - w_r];
+        } else {  // current group is the leftest, fill with zeros
+            local[loc - w_r] = 0;
+        }
+    } 
+    // lasr w_r threads fill right border (can be the same threas as in if above!)
+    if (lidx + w_r >= group_size && lidx < max(group_size, w_r)) { 
+        if (idx + w_r < PC.len) { // overlap is in the group to the right
+            local[loc + w_r] = A[idx + w_r];
+        } else { // no group to the right, fill with zeros
+            local[loc + w_r] = 0;
+        }
+    }
+    // Tadaa! every thread only reads max 2 times from global memory!
+}
+
+void calculate() {
+    // Calculate filter
+    uint idx = gl_GlobalInvocationID.x;
+    
+    if (idx < PC.len) { // ignore if out of bounds
+        uint loc = gl_LocalInvocationID.x + w_r;
+
+        float sum = local[loc];
+        for (uint i = 1; i <= w_r; i++) {
+            sum += local[loc - i]; // shared memory only reads
+            sum += local[loc + i];
+        }
+        B[idx] = A[idx] - sum / (w_r*2+1);
+    }
+}
+
+void main() 
+{
+    copy();
+    barrier();
+    calculate();
+}

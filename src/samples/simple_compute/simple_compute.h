@@ -1,6 +1,7 @@
 #ifndef SIMPLE_COMPUTE_H
 #define SIMPLE_COMPUTE_H
 
+#include <vector>
 #define VK_NO_PROTOTYPES
 #include "../../render/compute_common.h"
 #include "../resources/shaders/common.h"
@@ -63,7 +64,7 @@ private:
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
 
-  uint32_t m_length  = 16u;
+  uint32_t m_length;
   
   VkPhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions      = {};
@@ -75,12 +76,17 @@ private:
 
   VkDescriptorSet       m_sumDS; 
   VkDescriptorSetLayout m_sumDSLayout = nullptr;
-  
-  VkPipeline m_pipeline;
+
+  static constexpr uint s_shaderCount = 2;
+  VkPipeline m_pipelines[s_shaderCount];
   VkPipelineLayout m_layout;
 
-  VkBuffer m_A, m_B, m_sum;
- 
+  VkBuffer m_A, m_B;
+  std::vector<float> m_data;
+  // TODO изменять синхронно с шейдером
+  const int m_groupSize = 64;
+  const int m_w_r = 3;
+
   void CreateInstance();
   void CreateDevice(uint32_t a_deviceId);
 
@@ -93,6 +99,12 @@ private:
   void Cleanup();
 
   void SetupValidationLayers();
+
+  void GenerateData();
+  float CalcMean(const std::vector<float>& a_values);
+  std::vector<float> ReadResult();
+  std::vector<float> CPUExecution();
+
 };
 
 
