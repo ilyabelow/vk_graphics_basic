@@ -270,8 +270,8 @@
     <enable_dof>0</enable_dof>
     <dof_lens_radius>4.20389539e-45</dof_lens_radius>
     <up>0 1 1.62921e-07</up>
-    <position>0 -6.98998e-08 4.92939</position>
-    <look_at>0 1.62222e-05 -95.0706</look_at>
+    <position>0 0 5</position>
+    <look_at>0 0 0</look_at>
     <tiltRotX>0</tiltRotX>
     <tiltRotY>0</tiltRotY>
     <tiltShiftX>0</tiltShiftX>

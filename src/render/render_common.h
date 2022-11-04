@@ -10,7 +10,8 @@
 struct AppInput
 {
   AppInput(){
-    cams[1].pos    = float3(4.0f, 4.0f, 4.0f);
+    // Мне надоело крутить свет каждый раз чтобы увидеть шарик
+    cams[1].pos    = float3(2.0f, 1.0f, 4.0f);
     cams[1].lookAt = float3(0, 0, 0);
     cams[1].up     = float3(0, 1, 0);
   }

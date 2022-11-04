@@ -164,7 +164,7 @@ void SimpleShadowmapRender::SetupSimplePipeline()
   
   auto shadowMap = m_pShadowMap2->m_attachments[m_shadowMapId];
 
-  m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
+  m_pBindings->BindBegin(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
   m_pBindings->BindBuffer(0, m_ubo, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   m_pBindings->BindImage (1, shadowMap.view, m_pShadowMap2->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   m_pBindings->BindEnd(&m_dSet, &m_dSetLayout);
@@ -269,12 +269,16 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
   
   vkCmdBindVertexBuffers(a_cmdBuff, 0, 1, &vertexBuf, &zero_offset);
   vkCmdBindIndexBuffer(a_cmdBuff, indexBuf, 0, VK_INDEX_TYPE_UINT32);
-
+  
   pushConst2M.projView = a_wvp;
   for (uint32_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
   {
     auto inst         = m_pScnMgr->GetInstanceInfo(i);
-    pushConst2M.model = m_pScnMgr->GetInstanceMatrix(i);
+    // Тупой костыль потому что в пуш константы не влезает больше 128 байт (как раз два матрицы)
+    // по хорошему наверное надо обрабатывать такую простую анимацию на CPU и отсылать готовую матрицу на GPU (но по заданию надо в шейдере)
+    // или на крайний случай сделать отдельный буфер для матриц (например сделать сдвиг в вершинном буфере или типа того, но я не знаю как)
+    pushConst2M.model = m_pScnMgr->GetInstanceMatrix(i).get_col(3);
+    pushConst2M.modelId = i;
     vkCmdPushConstants(a_cmdBuff, m_basicForwardPipeline.layout, stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
 
     auto mesh_info = m_pScnMgr->GetMeshInfo(inst.mesh_id);
@@ -322,6 +326,8 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
   vkCmdBeginRenderPass(a_cmdBuff, &renderToShadowMap, VK_SUBPASS_CONTENTS_INLINE);
   {
     vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowPipeline.pipeline);
+    vkCmdBindDescriptorSets(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowPipeline.layout, 0, 1, &m_dSet, 0, VK_NULL_HANDLE);
+
     DrawSceneCmd(a_cmdBuff, m_lightMatrix);
   }
   vkCmdEndRenderPass(a_cmdBuff);
