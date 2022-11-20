@@ -15,6 +15,7 @@ void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32
   }
 
   SetupDeviceExtensions();
+  m_enabledDeviceFeatures.setGeometryShader(VK_TRUE);
   
   etna::initialize(etna::InitParams
     {

@@ -79,7 +79,7 @@ void SimpleShadowmapRender::PreparePipelines()
     VK_GRAPHICS_BASIC_ROOT "/resources/shaders/quad3_vert.vert.spv",
     VK_GRAPHICS_BASIC_ROOT "/resources/shaders/quad.frag.spv", 
     vk_utils::RenderTargetInfo2D{ VkExtent2D{ m_width, m_height }, m_swapchain.GetFormat(),                                        // this is debug full scree quad
-                                                  VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR }); // seems we need LOAD_OP_LOAD if we want to draw quad to part of screen
+                                                  VK_ATTACHMENT_LOAD_OP_LOAD, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR }); // seems we need LOAD_OP_LOAD if we want to draw quad to part of screen
 
   SetupSimplePipeline();
 }
@@ -115,8 +115,18 @@ static void print_prog_info(const std::string &name)
 void SimpleShadowmapRender::loadShaders()
 {
   etna::create_program("simple_material",
-    {VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple_shadow.frag.spv", VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.vert.spv"});
-  etna::create_program("simple_shadow", {VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.vert.spv"});
+    {
+      VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple_shadow.frag.spv", 
+      VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.vert.spv",
+      VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.geom.spv"
+    }
+  );
+  etna::create_program("simple_shadow", 
+    {
+      VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.vert.spv",
+      VK_GRAPHICS_BASIC_ROOT"/resources/shaders/simple.geom.spv"
+    }
+  );
 }
 
 void SimpleShadowmapRender::SetupSimplePipeline()
@@ -174,7 +184,7 @@ void SimpleShadowmapRender::DestroyPipelines()
 
 void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp)
 {
-  VkShaderStageFlags stageFlags = (VK_SHADER_STAGE_VERTEX_BIT);
+  VkShaderStageFlags stageFlags = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT); // use push constants in geometry shader
 
   VkDeviceSize zero_offset = 0u;
   VkBuffer vertexBuf = m_pScnMgr->GetVertexBuffer();
@@ -248,6 +258,11 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
   {
     etna::RenderTargetState renderTargets(a_cmdBuff, {2048, 2048}, {}, shadowMap.getView({}));
     {
+      VkDescriptorSet vkSet = etna::create_descriptor_set(etna::get_shader_program("simple_shadow").getDescriptorLayoutId(0), {
+       etna::Binding {0, vk::DescriptorBufferInfo {constants.get(), 0, VK_WHOLE_SIZE}},
+      }).getVkSet();
+      vkCmdBindDescriptorSets(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowPipeline.getVkPipelineLayout(), 0, 1, &vkSet, 0, VK_NULL_HANDLE);
+
       vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_shadowPipeline.getVkPipeline());
       DrawSceneCmd(a_cmdBuff, m_lightMatrix);
     }
@@ -351,7 +366,7 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
           .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
           .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
           .dstAccessMask = 0,
-          .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
           .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
           .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
