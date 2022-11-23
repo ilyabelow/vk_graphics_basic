@@ -1,0 +1,19 @@
+#version 430
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout (rgba32f, binding = 0) uniform readonly  image2D srcImage;
+layout (rgba32f, binding = 1) uniform writeonly image2D dstImage;
+
+void main()  {
+    ivec2 pic_size = ivec2(gl_WorkGroupSize.xy * gl_NumWorkGroups.xy);
+
+    ivec2 idx = ivec2(gl_GlobalInvocationID.xy);  
+    vec3 color;
+    if (((idx.x / 10 + idx.y / 10) & 1) == 0) {
+        color = vec3(0);
+    } else {
+        color = imageLoad(srcImage, idx).rgb;
+    }
+    imageStore(dstImage, idx, vec4(color, 1));
+}
