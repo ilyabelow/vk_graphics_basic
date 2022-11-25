@@ -1,3 +1,9 @@
+## Notes
+
+* `vkutils` is now included in the repo and **should not be downloaded**!
+* to toggle blur, press G
+
+
 # Basic graphics pipeline sample using Vulkan API
 This project provides basic graphics applications samples:
 * Forward rendering of a 3d scene in Hydra Renderer XML format ([HydraAPI](https://github.com/Ray-Tracing-Systems/HydraAPI), [Hydra renderer](http://www.raytracing.ru/)) located [here](https://github.com/msu-graphics-group/vk_graphics_basic/tree/main/src/samples/simpleforward). This sample has two renderers, which are selected directly in [code](https://github.com/msu-graphics-group/vk_graphics_basic/blob/main/src/samples/simpleforward/main.cpp) (search for *CreateRender*):

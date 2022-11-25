@@ -56,7 +56,8 @@ void SimpleShadowmapRender::ProcessInput(const AppInput &input)
   //
   if(input.keyReleased[GLFW_KEY_Q])
     m_input.drawFSQuad = !m_input.drawFSQuad;
-
+  if (input.keyReleased[GLFW_KEY_G])
+    m_input.blurImage = 1 - m_input.blurImage;
   if(input.keyReleased[GLFW_KEY_P])
     m_light.usePerspectiveM = !m_light.usePerspectiveM;
 

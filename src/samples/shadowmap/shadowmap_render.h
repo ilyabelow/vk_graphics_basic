@@ -50,6 +50,7 @@ private:
 
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+  etna::Buffer coeffs;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -104,6 +105,7 @@ private:
   struct InputControlMouseEtc
   {
     bool drawFSQuad = false;
+    int blurImage = 1;
   } m_input;
 
   /**

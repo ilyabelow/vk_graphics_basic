@@ -7,7 +7,7 @@ SimpleShadowmapRender::SimpleShadowmapRender(uint32_t a_width, uint32_t a_height
 {
 }
 
-void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t)
+void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t deviceID)
 {
   for(size_t i = 0; i < a_instanceExtensionsCount; ++i)
   {
@@ -26,8 +26,7 @@ void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32
         {
           .features = m_enabledDeviceFeatures
         },
-      // Replace with an index if etna detects your preferred GPU incorrectly 
-      .physicalDeviceIndexOverride = {}
+      .physicalDeviceIndexOverride = deviceID
     });
   
   m_context = &etna::get_context();

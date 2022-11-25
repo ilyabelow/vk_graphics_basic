@@ -45,6 +45,24 @@ void SimpleShadowmapRender::AllocateResources()
   });
 
   m_uboMappedMem = constants.map();
+
+  int half_window = 10;
+  int full_window = 2 * half_window + 1;
+  coeffs = m_context->createBuffer(etna::Buffer::CreateInfo{
+    .size        = sizeof(float) * full_window,
+    .bufferUsage = vk::BufferUsageFlagBits::eUniformBuffer,
+    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU
+  });
+  float sigma     = half_window * 0.3333;
+  float inv_2sigma2 = .5 / (sigma * sigma);
+
+  std::vector<float> coeffs_values(full_window);
+  for (int i = -half_window; i < half_window + 1; i++) {
+    coeffs_values[i + half_window] = exp(-i*i*inv_2sigma2);
+  }
+  void *coeffs_mapped        = coeffs.map();
+  memcpy(coeffs_mapped, coeffs_values.data(), sizeof(float) * full_window);
+  coeffs.unmap();
 }
 
 void SimpleShadowmapRender::LoadScene(const char* path, bool transpose_inst_matrices)
@@ -421,9 +439,10 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
 
     VkDescriptorSet vkSet = etna::create_descriptor_set(etna::get_shader_program("gaussian_blur").getDescriptorLayoutId(0), {
       etna::Binding {0, vk::DescriptorImageInfo {defaultSampler.get(), originalImage.getView({}), vk::ImageLayout::eGeneral}},
-      etna::Binding {1, vk::DescriptorImageInfo {defaultSampler.get(), a_targetImageView, vk::ImageLayout::eGeneral}}
+      etna::Binding {1, vk::DescriptorImageInfo { defaultSampler.get(), a_targetImageView, vk::ImageLayout::eGeneral}},
+      etna::Binding{ 2, vk::DescriptorBufferInfo{ coeffs.get(), 0, VK_WHOLE_SIZE } }
     }).getVkSet();
-
+    vkCmdPushConstants(a_cmdBuff, m_blurPipeline.getVkPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(m_input.blurImage), &m_input.blurImage);
     vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, m_blurPipeline.getVkPipeline());
     vkCmdBindDescriptorSets(a_cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, m_blurPipeline.getVkPipelineLayout(), 0, 1, &vkSet, 0, VK_NULL_HANDLE);
     vkCmdDispatch(a_cmdBuff, m_width / 32, m_height / 32, 1);
