@@ -12,6 +12,7 @@
 // while C++ unsigned int can be 16-bit.
 // Touching LiteMath is forbidden though, so yeah.
 using shader_uint  = LiteMath::uint;
+using shader_int  = int;
 using shader_uvec2 = LiteMath::uint2;
 using shader_uvec3 = LiteMath::uint3;
 
@@ -29,6 +30,7 @@ using shader_bool  = LiteMath::uint;
 #else
 
 #define shader_uint  uint
+#define shader_int int
 #define shader_uvec2 uvec2
 
 #define shader_float float
@@ -51,14 +53,35 @@ struct UniformParams
   shader_bool  animateLightColor;
 };
 
-struct InstanceParams
+struct InstanceData
 {
   shader_mat4 transform;
-  int model;
-  // Find a proper way to fix misaligment
+  uint model;
+  // TODO Find a proper way to fix misaligment
   int modelPadding1;
   int modelPadding2;
   int modelPadding3;
+};
+
+struct BBox
+{
+  shader_vec4 min;
+  shader_vec4 max;
+};
+
+struct ModelData
+{
+  BBox bbox;
+};
+
+// this is just a copy of VkDrawIndexedIndirectCommand for modifying in a compute shader
+struct IndirectCmd
+{
+  shader_uint indexCount;
+  shader_uint instanceCount;
+  shader_uint firstIndex;
+  shader_int vertexOffset;
+  shader_uint firstInstance;
 };
 
 #endif // VK_GRAPHICS_BASIC_COMMON_H

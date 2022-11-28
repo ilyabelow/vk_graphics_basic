@@ -14,6 +14,7 @@
 
 #include <string>
 #include <iostream>
+#include <numeric>
 
 #include <etna/GlobalContext.hpp>
 #include <etna/Sampler.hpp>
@@ -48,8 +49,11 @@ private:
   etna::Sampler defaultSampler;
   etna::Buffer constants;
   etna::Buffer m_indirectCmdBuffer;
-  etna::Buffer m_instanceTransformBuffer;
+  etna::Buffer m_instanceDataBuffer;
   std::vector<int> m_instanceCounts = { 1, 2, 7, 10, 15, 38 };
+  int total_instances               = std::reduce(m_instanceCounts.begin(), m_instanceCounts.end());
+  etna::Buffer m_visibleIdxBuffer;
+  etna::Buffer m_modelDataBuffer;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -69,6 +73,12 @@ private:
     float4x4 projView;
   } pushConst2M;
 
+  struct
+  {
+    shader_vec3 cameraPos;
+    shader_uint totalInstances;
+  } pushConstCulling;
+
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
@@ -77,6 +87,7 @@ private:
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
+  etna::ComputePipeline  m_cullingPipeline {};
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   
