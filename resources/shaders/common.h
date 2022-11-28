@@ -51,4 +51,14 @@ struct UniformParams
   shader_bool  animateLightColor;
 };
 
+struct InstanceParams
+{
+  shader_mat4 transform;
+  int model;
+  // Find a proper way to fix misaligment
+  int modelPadding1;
+  int modelPadding2;
+  int modelPadding3;
+};
+
 #endif // VK_GRAPHICS_BASIC_COMMON_H

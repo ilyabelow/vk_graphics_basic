@@ -47,6 +47,9 @@ private:
   etna::Image shadowMap;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+  etna::Buffer m_indirectCmdBuffer;
+  etna::Buffer m_instanceTransformBuffer;
+  std::vector<int> m_instanceCounts = { 1, 2, 7, 10, 15, 38 };
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -64,7 +67,6 @@ private:
   struct
   {
     float4x4 projView;
-    float4x4 model;
   } pushConst2M;
 
   float4x4 m_worldViewProj;
