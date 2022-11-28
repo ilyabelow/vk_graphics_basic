@@ -4,6 +4,7 @@
 #include <vk_pipeline.h>
 #include <vk_buffers.h>
 #include <iostream>
+#include <cstdlib>
 
 #include <etna/GlobalContext.hpp>
 #include <etna/Etna.hpp>
@@ -88,7 +89,11 @@ void SimpleShadowmapRender::LoadScene(const char* path, bool transpose_inst_matr
     // Generate instances
     for (int k = 0; k < m_instanceCounts[i]; k++) 
     {
-      instanceData[m].transform = LiteMath::translate4x4(LiteMath::float3(k, 0, 0)) * LiteMath::float4x4(m_pScnMgr->GetInstanceMatrix(i));
+      instanceData[m].transform = LiteMath::translate4x4(LiteMath::float3(
+        (static_cast<float>(std::rand()) / RAND_MAX - .5) * 100,
+        (static_cast<float>(std::rand()) / RAND_MAX - .5) * 100,
+        (static_cast<float>(std::rand()) / RAND_MAX - .5) * 100)
+      );
       instanceData[m].model = i;
       m++;
     }
@@ -268,9 +273,6 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
         etna::Binding{ 2, vk::DescriptorBufferInfo{ m_modelDataBuffer.get(), 0, VK_WHOLE_SIZE } } ,
         etna::Binding{ 3, vk::DescriptorBufferInfo{ m_indirectCmdBuffer.get(), 0, VK_WHOLE_SIZE } },
     }).getVkSet();
-
-    pushConstCulling.cameraPos = m_cam.pos;
-    pushConstCulling.totalInstances = total_instances;
 
     vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, m_cullingPipeline.getVkPipeline());
     vkCmdPushConstants(a_cmdBuff, m_cullingPipeline.getVkPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConstCulling), &pushConstCulling);

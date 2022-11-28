@@ -74,6 +74,12 @@ struct ModelData
   BBox bbox;
 };
 
+struct Plane
+{
+  shader_vec4 p;
+  shader_vec4 n;
+};
+
 // this is just a copy of VkDrawIndexedIndirectCommand for modifying in a compute shader
 struct IndirectCmd
 {

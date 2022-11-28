@@ -50,7 +50,7 @@ private:
   etna::Buffer constants;
   etna::Buffer m_indirectCmdBuffer;
   etna::Buffer m_instanceDataBuffer;
-  std::vector<int> m_instanceCounts = { 1, 2, 7, 10, 15, 38 };
+  std::vector<int> m_instanceCounts = { 1, 312, 5000, 1250, 2500, 625 }; // the less verticies the less copies
   int total_instances               = std::reduce(m_instanceCounts.begin(), m_instanceCounts.end());
   etna::Buffer m_visibleIdxBuffer;
   etna::Buffer m_modelDataBuffer;
@@ -75,8 +75,12 @@ private:
 
   struct
   {
-    shader_vec3 cameraPos;
+    Plane leftPlane;
+    Plane rightPlane;
+    Plane topPlane;
+    Plane bottomPlane;
     shader_uint totalInstances;
+
   } pushConstCulling;
 
   float4x4 m_worldViewProj;

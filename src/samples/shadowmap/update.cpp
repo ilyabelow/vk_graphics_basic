@@ -22,6 +22,24 @@ void SimpleShadowmapRender::UpdateView()
   auto mWorldViewProj = mProjFix * mProj * mLookAt;
   
   m_worldViewProj = mWorldViewProj;
+
+  // culling
+  // TODO make better
+  {
+    auto halfPlaneV              = m_cam.tdist * tan(m_cam.fov * LiteMath::DEG_TO_RAD);
+    auto halfPlaneH              = halfPlaneV * aspect;
+    auto tDist                   = m_cam.tdist;
+    auto forward                 = m_cam.forward();
+    auto right                   = m_cam.right();
+    auto up                      = m_cam.up;
+    auto pos                     = LiteMath::to_float4(m_cam.pos - forward, 1);
+    pushConstCulling.leftPlane   = { pos, LiteMath::to_float4(LiteMath::cross(up, forward * tDist - right * halfPlaneH), 1) };
+    pushConstCulling.rightPlane  = { pos, LiteMath::to_float4(LiteMath::cross(forward * tDist + right * halfPlaneH, up), 1) };
+    pushConstCulling.bottomPlane = { pos, LiteMath::to_float4(LiteMath::cross(forward * tDist - up * halfPlaneV, right), 1) };
+    pushConstCulling.topPlane    = { pos, LiteMath::to_float4(LiteMath::cross(right, forward * tDist + up * halfPlaneV), 1) };
+    pushConstCulling.totalInstances = total_instances;
+  }
+  
   
   ///// calc light matrix
   //

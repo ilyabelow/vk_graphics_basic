@@ -6,7 +6,10 @@
 layout( local_size_x = 32 ) in;
 
 layout( push_constant ) uniform PushConstant {
-  vec3 cameraPos;
+  Plane leftPlane;
+  Plane rightPlane;
+  Plane topPlane;
+  Plane bottomPlane;
   uint totalInstances;
 } params;
 
@@ -32,11 +35,15 @@ layout(std430, binding = 3) buffer IndirectCmdBuffer
 
 // naive culling for testing
 bool isVisible(uint idx) {
-    vec3 pos = vec3(instData[idx].transform[3][0], instData[idx].transform[3][1], instData[idx].transform[3][2]);
-    if (distance(params.cameraPos, pos) > 10) {
-        return false;
-    }
-    return true;
+    uint model_i = instData[idx].model;
+    vec3 bbmin = (instData[idx].transform * modelData[model_i].bbox.min).xyz;
+    vec3 bbmax = (instData[idx].transform * modelData[model_i].bbox.max).xyz;
+    vec3 center = (bbmin + bbmax) * .5;
+    float r = distance(center, bbmax);
+    return (dot(params.leftPlane.n.xyz,   center - params.leftPlane.p.xyz) < r)  &&
+           (dot(params.rightPlane.n.xyz,  center - params.rightPlane.p.xyz) < r) &&
+           (dot(params.topPlane.n.xyz,    center - params.topPlane.p.xyz) < r)   && 
+           (dot(params.bottomPlane.n.xyz, center - params.bottomPlane.p.xyz) < r);
 }
 
 void main()  
