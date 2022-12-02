@@ -69,9 +69,9 @@ include_directories(${CMAKE_SOURCE_DIR}/src)
 ##############################################
 
 add_subdirectory(external/volk)
-add_subdirectory(src/samples/quad2d)
+# add_subdirectory(src/samples/quad2d)
 add_subdirectory(src/samples/shadowmap)
-add_subdirectory(src/samples/simpleforward)
-add_subdirectory(src/samples/simple_compute)
+# add_subdirectory(src/samples/simpleforward)
+# add_subdirectory(src/samples/simple_compute)
 
 

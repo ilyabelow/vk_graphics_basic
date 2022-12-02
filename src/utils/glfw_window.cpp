@@ -221,7 +221,8 @@ void mainLoop(std::shared_ptr<IRender> &app, GLFWwindow* window, bool displayGUI
     {
       auto title = "test";//app->GetWindowTitle();
       std::stringstream strout;
-      strout << "FPS = " << int( 1.0/(avgTime/double(NAverage)) ) << " " << title;
+      double s_per_frame = avgTime/double(NAverage);
+      strout << "FPS = " << int( 1.0 / s_per_frame ) << "; time = " << int(s_per_frame*1000) << "ms;          " << title;
 
       glfwSetWindowTitle(window, strout.str().c_str());
       avgTime    = 0.0;

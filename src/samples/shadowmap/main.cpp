@@ -25,6 +25,7 @@ void initVulkanGLFW(std::shared_ptr<IRender> &app, GLFWwindow* window, int devic
 
 int main()
 {
+
   constexpr int WIDTH = 1024;
   constexpr int HEIGHT = 1024;
   constexpr int VULKAN_DEVICE_ID = 0;
