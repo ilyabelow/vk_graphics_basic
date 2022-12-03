@@ -1,0 +1,50 @@
+#version 430
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.h"
+
+layout( local_size_x = 32 ) in;
+
+layout( push_constant ) uniform PushConstant {
+  vec3 cameraPos;
+  uint totalInstances;
+} params;
+
+layout(std430, binding = 0)  buffer VisibleIdxBuffer
+{
+    uint visibleIdx[];
+};
+
+layout(std430, binding = 1) buffer readonly InstanceDataBuffer
+{
+    mat4 instData[];
+};
+
+layout(std430, binding = 2) buffer IndirectCmdBuffer
+{
+    IndirectCmd indirectCmd[];
+};
+
+// naive culling for testing
+bool isVisible(uint idx) {
+    vec3 pos = vec3(instData[idx].transform[3][0], instData[idx].transform[3][1], instData[idx].transform[3][2]);
+    if (distance(params.cameraPos, pos) > 10) {
+        return false;
+    }
+    return true;
+}
+
+void main()  
+{
+    uint idx = gl_GlobalInvocationID.x;
+    // TODO proper voting?
+    if (idx < modelData.length()) {
+        indirectCmd[idx].instanceCount = 0;
+    }
+    barrier();
+    if (idx < params.totalInstances && isVisible(idx)) {
+        uint model_i = instData[idx].model;
+        uint curr_visible = atomicAdd(indirectCmd[model_i].instanceCount, 1) + indirectCmd[model_i].firstInstance;
+        visibleIdx[curr_visible] = idx;
+    }
+}

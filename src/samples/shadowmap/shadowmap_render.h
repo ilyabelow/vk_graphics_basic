@@ -88,6 +88,12 @@ private:
     float4x4 projView;
   } pushConst2M;
 
+  struct
+  {
+    vec3 cameraPos;
+    uint totalInstances;
+  } pushConstCulling;
+
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;    
 
@@ -99,12 +105,17 @@ private:
   int m_teapotsCount = 10000;
   VkBuffer m_transforms = VK_NULL_HANDLE;
   VkBuffer m_indirect = VK_NULL_HANDLE;
+  VkBuffer m_visible = VK_NULL_HANDLE;
 
   pipeline_data_t m_basicForwardPipeline {};
   pipeline_data_t m_shadowPipeline {};
+  pipeline_data_t m_computePipeline{};
 
   VkDescriptorSet m_dSet = VK_NULL_HANDLE;
   VkDescriptorSetLayout m_dSetLayout = VK_NULL_HANDLE;
+  VkDescriptorSet       m_computeDS;
+  VkDescriptorSetLayout m_computeDSLayout;
+
   VkRenderPass m_screenRenderPass = VK_NULL_HANDLE; // main renderpass
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
@@ -187,6 +198,7 @@ private:
 
   void CreateTransformsBuffer();
   void CreateIndirectBuffer();
+  void CreateVisibleBuffer();
 
   void Cleanup();
 

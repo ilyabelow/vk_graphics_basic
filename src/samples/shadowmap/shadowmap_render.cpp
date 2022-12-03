@@ -159,7 +159,7 @@ void SimpleShadowmapRender::SetupSimplePipeline()
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,     2},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,             1}
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,             4}
   };
 
   m_pBindings = std::make_shared<vk_utils::DescriptorMaker>(m_device, dtypes, 2);
@@ -177,6 +177,13 @@ void SimpleShadowmapRender::SetupSimplePipeline()
   m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
   m_pBindings->BindImage(0, shadowMap.view, m_pShadowMap2->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   m_pBindings->BindEnd(&m_quadDS, &m_quadDSLayout);
+
+  //for compute frustum culling pipeline
+  m_pBindings->BindBegin(VK_SHADER_STAGE_COMPUTE_BIT);
+  m_pBindings->BindBuffer(0, m_visible, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+  m_pBindings->BindBuffer(1, m_transforms, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+  m_pBindings->BindBuffer(2, m_indirect, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+  m_pBindings->BindEnd(&m_computeDS, &m_computeDSLayout);
 
   // if we are recreating pipeline (for example, to reload shaders)
   // we need to cleanup old pipeline
@@ -228,7 +235,14 @@ void SimpleShadowmapRender::SetupSimplePipeline()
 
   m_shadowPipeline.layout   = m_basicForwardPipeline.layout;
   m_shadowPipeline.pipeline = maker.MakePipeline(m_device, m_pScnMgr->GetPipelineVertexInputStateCreateInfo(), 
-                                                 m_pShadowMap2->m_renderPass);                                                       
+                                                 m_pShadowMap2->m_renderPass);   
+
+
+  vk_utils::ComputePipelineMaker computeMaker;
+
+  computeMaker.LoadShader(m_device, "../resources/shaders/culling.comp.spv");
+  m_computePipeline.layout   = computeMaker.MakeLayout(m_device, { m_computeDSLayout }, sizeof(pushConstCulling));
+  m_computePipeline.pipeline = computeMaker.MakePipeline(m_device);                                                    
 }
 
 void SimpleShadowmapRender::CreateUniformBuffer()
@@ -265,8 +279,10 @@ void SimpleShadowmapRender::UpdateUniformBuffer(float a_time)
 void SimpleShadowmapRender::CreateTransformsBuffer() {
   VkMemoryRequirements memReq;
 
+
   auto notTeapotsCount = m_pScnMgr->InstancesNum();
   auto instanceCount = m_teapotsCount + notTeapotsCount;
+  pushConstCulling.totalInstances = instanceCount;
   m_transforms = vk_utils::createBuffer(m_device, sizeof(LiteMath::float4x4)*instanceCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &memReq);
 
   VkMemoryAllocateInfo allocateInfo = {};
@@ -345,6 +361,25 @@ void SimpleShadowmapRender::CreateIndirectBuffer() {
   vkUnmapMemory(m_device, indirectAlloc);
 }
 
+void SimpleShadowmapRender::CreateVisibleBuffer() {
+  VkMemoryRequirements memReq;
+
+  m_visible = vk_utils::createBuffer(m_device, sizeof(uint)*pushConstCulling.totalInstances, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &memReq);
+
+  VkMemoryAllocateInfo allocateInfo = {};
+  allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocateInfo.pNext = nullptr;
+  allocateInfo.allocationSize = memReq.size;
+  allocateInfo.memoryTypeIndex = vk_utils::findMemoryType(memReq.memoryTypeBits,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                          m_physicalDevice);
+  VkDeviceMemory visibleAlloc = VK_NULL_HANDLE;
+
+  VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocateInfo, nullptr, &visibleAlloc));
+  VK_CHECK_RESULT(vkBindBufferMemory(m_device, m_visible, visibleAlloc, 0));
+}
+
 void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp)
 {
   VkShaderStageFlags stageFlags = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -393,6 +428,65 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
   std::vector<VkRect2D> scissors = {scissor};
   vkCmdSetViewport(a_cmdBuff, 0, 1, viewports.data());
   vkCmdSetScissor(a_cmdBuff, 0, 1, scissors.data());
+
+   {
+    std::array barriers{
+      VkBufferMemoryBarrier{
+        .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .buffer        = m_indirect,
+        .size          = VK_WHOLE_SIZE },
+      VkBufferMemoryBarrier{
+        .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .buffer        = m_visible,
+        .size          = VK_WHOLE_SIZE }
+    };
+
+    vkCmdPipelineBarrier(a_cmdBuff, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 
+                                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+                                    VK_DEPENDENCY_BY_REGION_BIT, 
+                                    0, nullptr, 
+                                    static_cast<uint32_t>(barriers.size()), 
+                                    barriers.data(), 
+                                    0, nullptr);
+  }
+
+  // compute frustum culling
+  //
+  {
+    vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline.pipeline);
+    vkCmdBindDescriptorSets(a_cmdBuff, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline.layout, 0, 1, &m_computeDS, 0, NULL);
+    vkCmdPushConstants(a_cmdBuff, m_computePipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushConstCulling), &pushConstCulling);
+    vkCmdDispatch(a_cmdBuff, pushConstCulling.totalInstances / 32 + 1, 1, 1);
+  }
+
+  {
+    std::array barriers{
+      VkBufferMemoryBarrier{
+        .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .buffer        = m_indirect,
+        .size          = VK_WHOLE_SIZE },
+      VkBufferMemoryBarrier{
+        .sType         = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+        .buffer        = m_visible,
+        .size          = VK_WHOLE_SIZE }
+    };
+
+    vkCmdPipelineBarrier(a_cmdBuff, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+                                    VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 
+                                    VK_DEPENDENCY_BY_REGION_BIT, 
+                                    0, nullptr, 
+                                    static_cast<uint32_t>(barriers.size()),
+                                    barriers.data(), 
+                                    0, nullptr);
+  }
 
   //// draw scene to shadowmap
   //
@@ -621,6 +715,7 @@ void SimpleShadowmapRender::LoadScene(const char* path, bool transpose_inst_matr
   CreateUniformBuffer();
   CreateTransformsBuffer();
   CreateIndirectBuffer();
+  CreateVisibleBuffer();
   SetupSimplePipeline();
 
   auto loadedCam = m_pScnMgr->GetCamera(0);
