@@ -17,6 +17,7 @@ SimpleShadowmapRender::SimpleShadowmapRender(uint32_t a_width, uint32_t a_height
 void SimpleShadowmapRender::SetupDeviceFeatures()
 {
   // m_enabledDeviceFeatures.fillModeNonSolid = VK_TRUE;
+  m_enabledDeviceFeatures.multiDrawIndirect = VK_TRUE;
 }
 
 void SimpleShadowmapRender::SetupDeviceExtensions()
@@ -157,19 +158,21 @@ void SimpleShadowmapRender::SetupSimplePipeline()
 {
   std::vector<std::pair<VkDescriptorType, uint32_t> > dtypes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,             1},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,     2}
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,     2},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,             1}
   };
 
   m_pBindings = std::make_shared<vk_utils::DescriptorMaker>(m_device, dtypes, 2);
   
   auto shadowMap = m_pShadowMap2->m_attachments[m_shadowMapId];
 
-  m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
+  m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT);
   m_pBindings->BindBuffer(0, m_ubo, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   m_pBindings->BindImage (1, shadowMap.view, m_pShadowMap2->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  m_pBindings->BindBuffer(2, m_transforms, VK_NULL_HANDLE, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
   m_pBindings->BindEnd(&m_dSet, &m_dSetLayout);
 
-  //m_pBindings->BindImage(0, m_GBufTarget->m_attachments[m_GBuf_idx[GBUF_ATTACHMENT::POS_Z]].view, m_GBufTarget->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  //m_pBindings->BindImage(0, m_GBufTarget->m_attachments[m_GSBuf_idx[GBUF_ATTACHMENT::POS_Z]].view, m_GBufTarget->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
   m_pBindings->BindBegin(VK_SHADER_STAGE_FRAGMENT_BIT);
   m_pBindings->BindImage(0, shadowMap.view, m_pShadowMap2->m_sampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -259,6 +262,89 @@ void SimpleShadowmapRender::UpdateUniformBuffer(float a_time)
   memcpy(m_uboMappedMem, &m_uniforms, sizeof(m_uniforms));
 }
 
+void SimpleShadowmapRender::CreateTransformsBuffer() {
+  VkMemoryRequirements memReq;
+
+  auto notTeapotsCount = m_pScnMgr->InstancesNum();
+  auto instanceCount = m_teapotsCount + notTeapotsCount;
+  m_transforms = vk_utils::createBuffer(m_device, sizeof(LiteMath::float4x4)*instanceCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, &memReq);
+
+  VkMemoryAllocateInfo allocateInfo = {};
+  allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocateInfo.pNext = nullptr;
+  allocateInfo.allocationSize = memReq.size;
+  allocateInfo.memoryTypeIndex = vk_utils::findMemoryType(memReq.memoryTypeBits,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                          m_physicalDevice);
+  VkDeviceMemory transformsAlloc = VK_NULL_HANDLE;
+
+  VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocateInfo, nullptr, &transformsAlloc));
+  VK_CHECK_RESULT(vkBindBufferMemory(m_device, m_transforms, transformsAlloc, 0));
+
+  void* transformsMappedMem = nullptr;
+  vkMapMemory(m_device, transformsAlloc, 0, sizeof(LiteMath::float4x4)*instanceCount, 0, &transformsMappedMem);
+  LiteMath::float4x4* transformsData = reinterpret_cast<LiteMath::float4x4*>(transformsMappedMem);
+
+  for (uint32_t i = 0; i < notTeapotsCount; ++i)
+  {
+    transformsData[i] = m_pScnMgr->GetInstanceMatrix(i);
+  }
+  for (int i = 0; i < m_teapotsCount; ++i)
+  {
+    transformsData[i+notTeapotsCount] = m_pScnMgr->GetInstanceMatrix(1);
+    transformsData[i+notTeapotsCount].col(3).x += (i / 100 - 50) * 2;
+    transformsData[i+notTeapotsCount].col(3).y += (i % 100 - 50) * 2;
+  }
+
+  vkUnmapMemory(m_device, transformsAlloc);
+}
+
+void SimpleShadowmapRender::CreateIndirectBuffer() {
+  VkMemoryRequirements memReq;
+
+  m_indirect = vk_utils::createBuffer(m_device, sizeof(VkDrawIndexedIndirectCommand)*(m_pScnMgr->InstancesNum()+1), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, &memReq);
+
+  VkMemoryAllocateInfo allocateInfo = {};
+  allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocateInfo.pNext = nullptr;
+  allocateInfo.allocationSize = memReq.size;
+  allocateInfo.memoryTypeIndex = vk_utils::findMemoryType(memReq.memoryTypeBits,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                                          m_physicalDevice);
+  VkDeviceMemory indirectAlloc = VK_NULL_HANDLE;
+
+  VK_CHECK_RESULT(vkAllocateMemory(m_device, &allocateInfo, nullptr, &indirectAlloc));
+  VK_CHECK_RESULT(vkBindBufferMemory(m_device, m_indirect, indirectAlloc, 0));
+
+  void* indirectMappedMem = nullptr;
+  vkMapMemory(m_device, indirectAlloc, 0, sizeof(VkDrawIndexedIndirectCommand)*(m_pScnMgr->InstancesNum()+1), 0, &indirectMappedMem);
+  VkDrawIndexedIndirectCommand* indirectData = reinterpret_cast<VkDrawIndexedIndirectCommand*>(indirectMappedMem);
+
+  for (uint32_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
+  {
+    auto mesh_info = m_pScnMgr->GetMeshInfo(m_pScnMgr->GetInstanceInfo(i).mesh_id);
+
+    indirectData[i].indexCount    = mesh_info.m_indNum;
+    indirectData[i].instanceCount = 1;
+    indirectData[i].firstIndex    = mesh_info.m_indexOffset;
+    indirectData[i].vertexOffset  = mesh_info.m_vertexOffset;
+    indirectData[i].firstInstance = i;
+  }
+  {
+    auto mesh_info = m_pScnMgr->GetMeshInfo(m_pScnMgr->GetInstanceInfo(1).mesh_id);
+    auto last_i = m_pScnMgr->InstancesNum();
+    indirectData[last_i].indexCount    = mesh_info.m_indNum;
+    indirectData[last_i].instanceCount = m_teapotsCount;
+    indirectData[last_i].firstIndex    = mesh_info.m_indexOffset;
+    indirectData[last_i].vertexOffset  = mesh_info.m_vertexOffset;
+    indirectData[last_i].firstInstance = last_i;
+  }
+
+  vkUnmapMemory(m_device, indirectAlloc);
+}
+
 void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp)
 {
   VkShaderStageFlags stageFlags = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -271,26 +357,11 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
   vkCmdBindIndexBuffer(a_cmdBuff, indexBuf, 0, VK_INDEX_TYPE_UINT32);
 
   pushConst2M.projView = a_wvp;
-  for (uint32_t i = 0; i < m_pScnMgr->InstancesNum(); ++i)
   {
-    auto inst         = m_pScnMgr->GetInstanceInfo(i);
-    pushConst2M.model = m_pScnMgr->GetInstanceMatrix(i);
     vkCmdPushConstants(a_cmdBuff, m_basicForwardPipeline.layout, stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
-
-    auto mesh_info = m_pScnMgr->GetMeshInfo(inst.mesh_id);
-    vkCmdDrawIndexed(a_cmdBuff, mesh_info.m_indNum, 1, mesh_info.m_indexOffset, mesh_info.m_vertexOffset, 0);
+    vkCmdDrawIndexedIndirect(a_cmdBuff, m_indirect, 0,m_pScnMgr->InstancesNum()+1, sizeof(VkDrawIndexedIndirectCommand));
   }
-  for (int i = 0; i < 10000; ++i)
-  {
-    auto inst         = m_pScnMgr->GetInstanceInfo(1);
-    pushConst2M.model = m_pScnMgr->GetInstanceMatrix(1);
-    pushConst2M.model.col(3).x += (i / 100 - 50) * 2;
-    pushConst2M.model.col(3).y += (i % 100 - 50) * 2;
-    vkCmdPushConstants(a_cmdBuff, m_basicForwardPipeline.layout, stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
 
-    auto mesh_info = m_pScnMgr->GetMeshInfo(inst.mesh_id);
-    vkCmdDrawIndexed(a_cmdBuff, mesh_info.m_indNum, 1, mesh_info.m_indexOffset, mesh_info.m_vertexOffset, 0);
-  }
 }
 
 void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkFramebuffer a_frameBuff,
@@ -548,6 +619,8 @@ void SimpleShadowmapRender::LoadScene(const char* path, bool transpose_inst_matr
   m_pScnMgr->LoadSceneXML(path, transpose_inst_matrices);
 
   CreateUniformBuffer();
+  CreateTransformsBuffer();
+  CreateIndirectBuffer();
   SetupSimplePipeline();
 
   auto loadedCam = m_pScnMgr->GetCamera(0);

@@ -5,3 +5,4 @@ This table demonstrates all optimization to the code. Each optimization includes
 | Optimization | FPS, time | Change | Comment |
 |--|--|--|--|
 | Nothing | 10, 97ms | | |
+| instancing + indirect | 10, 99ms | +0% | it even became worse... |

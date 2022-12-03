@@ -86,7 +86,6 @@ private:
   struct
   {
     float4x4 projView;
-    float4x4 model;
   } pushConst2M;
 
   float4x4 m_worldViewProj;
@@ -96,6 +95,10 @@ private:
   VkBuffer m_ubo = VK_NULL_HANDLE;
   VkDeviceMemory m_uboAlloc = VK_NULL_HANDLE;
   void* m_uboMappedMem = nullptr;
+
+  int m_teapotsCount = 10000;
+  VkBuffer m_transforms = VK_NULL_HANDLE;
+  VkBuffer m_indirect = VK_NULL_HANDLE;
 
   pipeline_data_t m_basicForwardPipeline {};
   pipeline_data_t m_shadowPipeline {};
@@ -181,6 +184,9 @@ private:
 
   void CreateUniformBuffer();
   void UpdateUniformBuffer(float a_time);
+
+  void CreateTransformsBuffer();
+  void CreateIndirectBuffer();
 
   void Cleanup();
 
