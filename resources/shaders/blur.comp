@@ -1,0 +1,131 @@
+#version 430
+
+
+const int half_window = 10;
+const int group_size = 32;
+
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout (rgba32f, binding = 0) uniform readonly  image2D srcImage;
+layout (rgba32f, binding = 1) uniform writeonly image2D dstImage;
+layout (binding = 2) uniform gaussCoeffsBuffer {
+    vec4 gaussCoeffs[half_window/2+1];
+};
+
+shared vec3 local_image[group_size+half_window*2][group_size+half_window*2];
+
+void load() {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.xy);  // in the image
+    ivec2 lidx = ivec2(gl_LocalInvocationID.xy);  // in group
+    ivec2 bidx = lidx + ivec2(half_window);       // in local_image w/o padding
+
+    // COPY STAGE
+    // core
+    local_image[bidx.x][bidx.y] = imageLoad(srcImage, idx).rgb;
+    // works only with half_window <= 32
+    if (lidx.y < half_window) { // top row
+        local_image[bidx.x][bidx.y - half_window] = imageLoad(srcImage, idx + ivec2(0, -half_window)).rgb;
+    }
+    if (lidx.y >= group_size - half_window) { // bottom row
+        local_image[bidx.x][bidx.y + half_window] = imageLoad(srcImage, idx + ivec2(0, +half_window)).rgb;
+    }
+    if (lidx.x < half_window) { // left row
+        local_image[bidx.x - half_window][bidx.y] = imageLoad(srcImage, idx + ivec2(-half_window, 0)).rgb;
+    }
+    if (lidx.x >=group_size - half_window) { // right row
+        local_image[bidx.x + half_window][bidx.y] = imageLoad(srcImage, idx + ivec2(+half_window, 0)).rgb;
+    }
+    if (lidx.y < half_window && lidx.x < half_window) { // top left corner
+        local_image[bidx.x - half_window][bidx.y - half_window] = imageLoad(srcImage, idx + ivec2(-half_window, -half_window)).rgb;
+    }
+    if (lidx.y < half_window && lidx.x  >= group_size - half_window) { // top right corner
+        local_image[bidx.x + half_window][bidx.y - half_window] = imageLoad(srcImage, idx + ivec2(+half_window, -half_window)).rgb;
+    }
+    if (lidx.y >= group_size - half_window && lidx.x < half_window) { // bottom left corner
+        local_image[bidx.x - half_window][bidx.y + half_window] = imageLoad(srcImage, idx + ivec2(-half_window, +half_window)).rgb;
+    }
+    if (lidx.y >= group_size - half_window && lidx.x  >= group_size - half_window) { // bottom right corner
+        local_image[bidx.x + half_window][bidx.y + half_window] = imageLoad(srcImage, idx + ivec2(+half_window, +half_window)).rgb;
+    }
+    barrier();
+}
+
+float get_coof(int i) {
+    // TODO figure out how to pack floats by 4 bytes instead of 16 properly
+    return gaussCoeffs[i/4][i % 4];
+}
+
+void horizontal_pass_int(ivec2 bidx, bool act) {
+    ivec2 idx = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pic_size = imageSize(srcImage);
+
+    vec3 sum = vec3(0);
+    float normalizer = 0;
+    if (act) {
+        for (int i = -half_window; i < half_window + 1; i++) {
+            sum += get_coof(i+half_window)*local_image[bidx.x + i][bidx.y];
+            if (idx.x + i >= 0 && idx.x + i < pic_size.x) {
+                normalizer += get_coof(i+half_window);
+            }
+        }
+    }
+    barrier();
+    if (act) {
+        local_image[bidx.x][bidx.y] = sum / normalizer;
+    }
+}
+
+void horizontal_pass() {
+    ivec2 lidx = ivec2(gl_LocalInvocationID.xy);
+    ivec2 bidx = lidx + ivec2(half_window);
+    horizontal_pass_int(bidx, true);
+    horizontal_pass_int(bidx - ivec2(0, half_window),  lidx.y < half_window);
+    horizontal_pass_int(bidx + ivec2(0, half_window),  lidx.y >= group_size - half_window);
+    barrier();
+}
+
+void vertical_pass() {
+    ivec2 pic_size = imageSize(srcImage);
+
+    ivec2 idx = ivec2(gl_GlobalInvocationID.xy);  // in the image
+    ivec2 lidx = ivec2(gl_LocalInvocationID.xy);  // in group
+    ivec2 bidx = lidx + ivec2(half_window);       // in local_image w/o padding
+
+    vec3 sum = vec3(0);
+    float normalizer = 0;
+    for (int j = -half_window; j < half_window + 1; j++) {
+        sum += get_coof(j+half_window)*local_image[bidx.x][bidx.y + j];
+        if (idx.y + j >= 0 && idx.y + j < pic_size.y) {
+            normalizer +=  get_coof(j+half_window);
+        }
+    }
+    imageStore(dstImage, idx, vec4(sum/normalizer, 1.f));
+}
+
+//for debugging
+void naive_pass() {
+    ivec2 pic_size = imageSize(srcImage);
+
+    ivec2 idx = ivec2(gl_GlobalInvocationID.xy);  // in the image
+    ivec2 lidx = ivec2(gl_LocalInvocationID.xy);  // in group
+    ivec2 bidx = lidx + ivec2(half_window);       // in local_image w/o padding
+
+    vec3 sum = vec3(0);
+    float normalizer = 0;
+    for (int i = -half_window; i < half_window + 1; i++) {
+        for (int j = -half_window; j < half_window + 1; j++) {
+            sum +=  get_coof(j+half_window)* get_coof(i+half_window)*local_image[bidx.x + i][bidx.y + j];
+            if (idx.y + j >= 0 && idx.y + j < pic_size.y && idx.x + i >= 0 && idx.x + i < pic_size.x) {
+                normalizer +=  get_coof(j+half_window)* get_coof(i+half_window);
+            }
+        }
+    }
+    imageStore(dstImage, idx, vec4(sum / normalizer, 1.f));
+}
+
+void main()  {
+    load();
+    horizontal_pass();
+    vertical_pass();
+}

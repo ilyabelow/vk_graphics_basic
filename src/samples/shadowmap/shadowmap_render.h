@@ -47,8 +47,11 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image shadowMapWithSquare; // shadowmap with its square
+  etna::Image varianceShadowMap;   // the same but blurred
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+  etna::Buffer coeffs;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -77,6 +80,8 @@ private:
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
+  etna::GraphicsPipeline m_shadowWithSquarePipeline{};
+  etna::ComputePipeline  m_blurPipeline {};
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   

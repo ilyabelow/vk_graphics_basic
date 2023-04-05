@@ -15,7 +15,7 @@ void SimpleShadowmapRender::SetupGUIElements()
     ImGui::SliderFloat3("Light source position", m_uniforms.lightPos.M, -10.f, 10.f);
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
+    ImGui::Checkbox("Use VSM", reinterpret_cast<bool*>(&m_uniforms.useVsm)); // too bad shader_bool is uint, lol
     ImGui::NewLine();
 
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f),"Press 'B' to recompile and reload shaders");
