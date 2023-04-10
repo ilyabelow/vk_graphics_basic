@@ -26,6 +26,7 @@ struct SceneManager
   ~SceneManager() { DestroyScene(); }
 
   bool LoadSceneXML(const std::string &scenePath, bool transpose = true);
+  void LoadSceneQuadGrid(size_t resolutionm, float3 pos, float size);
   void LoadSingleTriangle();
 
   uint32_t AddMeshFromFile(const std::string& meshPath);

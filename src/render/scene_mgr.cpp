@@ -67,6 +67,76 @@ bool SceneManager::LoadSceneXML(const std::string &scenePath, bool transpose)
   return true;
 }
 
+void SceneManager::LoadSceneQuadGrid(size_t resolution, float3 pos, float size)
+{
+  // resolution = number of quads in one dimention
+  // so we need resolution+1 verticies in one dimention
+
+  cmesh::SimpleMesh mesh = cmesh::SimpleMesh();
+
+  float step = 1.f / resolution;
+  size_t verts = resolution + 1;
+
+  // Verticies
+  mesh.vPos4f.resize(4 * verts *  verts);
+  mesh.vNorm4f.resize(4 * verts * verts);
+  mesh.vTexCoord2f.resize(2 * verts * verts);
+  mesh.vTang4f = std::vector<float>(mesh.vPos4f.size(), 0);
+
+  size_t pos_i  = 0;
+  size_t norm_i = 0;
+  size_t text_i = 0;
+
+  for (size_t i = 0; i < verts; i++) {
+    for (size_t j = 0; j < verts; j++) {
+      mesh.vPos4f[pos_i++] = j * step;
+      mesh.vPos4f[pos_i++] = 0.f;
+      mesh.vPos4f[pos_i++] = i * step;
+      mesh.vPos4f[pos_i++] = 1.f;
+
+      mesh.vNorm4f[norm_i++] = 0.;
+      mesh.vNorm4f[norm_i++] = 1.;
+      mesh.vNorm4f[norm_i++] = 0.;
+      mesh.vNorm4f[norm_i++] = 0.;
+
+      mesh.vTexCoord2f[text_i++] = (float)j * step;
+      mesh.vTexCoord2f[text_i++] = (float)i * step;
+    }
+  }
+
+  // Triangles
+  mesh.indices.resize(6 * verts * verts);
+
+  size_t ind_i = 0;
+  for (size_t i = 0; i < verts - 1; i++) {
+    for (size_t j = 0; j < verts - 1; j++) {
+      mesh.indices[ind_i++] = i * verts + j;
+      mesh.indices[ind_i++] = i * verts + j + 1;
+      mesh.indices[ind_i++] = (i + 1) * verts + j + 1;
+
+      mesh.indices[ind_i++] = i * verts + j;
+      mesh.indices[ind_i++] = (i + 1) * verts + j + 1;
+      mesh.indices[ind_i++] = (i + 1) * verts + j;
+    }
+  }
+  // loading
+  auto meshId = AddMeshFromData(mesh);
+  LiteMath::float4x4 meshMat = LiteMath::translate4x4(pos) * LiteMath::scale4x4(float3(size));
+  InstanceMesh(meshId, meshMat);
+  LoadGeoDataOnGPU();
+
+  // Camera
+  hydra_xml::Camera camera = {};
+  camera.fov = 60.f;
+  camera.nearPlane = 0.01f;
+  camera.farPlane  = 100.0f;
+  camera.pos[0] = 20.0f; camera.pos[1] = 20.0f; camera.pos[2] = 10.0f;
+  camera.up[0] = 0.0f; camera.up[1] = 1.0f; camera.up[2] = 0.0f;
+  camera.lookAt[0] = 0.0f; camera.lookAt[1] = 0.0f; camera.lookAt[2] = 0.0f;
+  m_sceneCameras.push_back(camera);
+}
+
+
 hydra_xml::Camera SceneManager::GetCamera(uint32_t camId) const
 {
   if(camId >= m_sceneCameras.size())

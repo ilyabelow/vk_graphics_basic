@@ -45,7 +45,11 @@ void SimpleShadowmapRender::AllocateResources()
 
 void SimpleShadowmapRender::LoadScene(const char* path, bool transpose_inst_matrices)
 {
-  m_pScnMgr->LoadSceneXML(path, transpose_inst_matrices);
+  if (strcmp(path, "grid") == 0) {
+    m_pScnMgr->LoadSceneQuadGrid(pushConst2M.resolution, {0, 0, 0}, 16);
+  } else {
+    m_pScnMgr->LoadSceneXML(path, transpose_inst_matrices);
+  }
 
   // TODO: Make a separate stage
   loadShaders();
