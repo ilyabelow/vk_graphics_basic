@@ -16,9 +16,6 @@ void SimpleShadowmapRender::SetupGUIElements()
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-    ImGui::SliderFloat("Min height", &pushConst2M.minHeight, 0.f, pushConst2M.maxHeight);
-    ImGui::SliderFloat("Max height", &pushConst2M.maxHeight, pushConst2M.minHeight, 20.f);
-
     ImGui::NewLine();
 
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f),"Press 'B' to recompile and reload shaders");

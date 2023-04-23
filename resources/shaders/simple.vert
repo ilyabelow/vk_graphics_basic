@@ -12,8 +12,6 @@ layout(push_constant) uniform params_t
 {
     mat4 mProjView;
     mat4 mModel;
-    float minHeight;
-    float maxHeight;
     uint resolution;
 } params;
 
@@ -26,11 +24,6 @@ layout (location = 0 ) out VS_OUT
     vec2 texCoord;
 
 } vOut;
-
-
-float interpolate(float a, float b, float t) {
-    return a + (b - a) * t;
-}
 
 // Noise taken from Wikipedia
 
@@ -61,13 +54,13 @@ float perlin(vec2 p, uint resolution) {
     int x1 = x0 + 1;
     int y1 = y0 + 1;
 
-    return interpolate(
-        interpolate(
+    return mix(
+        mix(
             dotGridGradient(ivec2(x0, y0), p),
             dotGridGradient(ivec2(x1, y0), p),
             smoothstep(0, 1, p.x - floor(p.x))
         ),
-        interpolate(
+        mix(
             dotGridGradient(ivec2(x0, y1), p),
             dotGridGradient(ivec2(x1, y1), p),
             smoothstep(0, 1, p.x - floor(p.x))
@@ -77,15 +70,10 @@ float perlin(vec2 p, uint resolution) {
 }
 
 float getHeight(vec2 p) {
-    return interpolate(
-        params.minHeight*1.25f,
-        params.maxHeight*0.75f, 
-        perlin(vOut.texCoord, 8)
-    ) + interpolate(
-        -params.minHeight*0.25f, 
-        params.maxHeight*0.25f, 
-        perlin(vOut.texCoord, 32)
-    );
+    float dist = distance(vec2(0.3, 0.5), p);
+    return mix(0, 16.0*dist*dist, perlin(p, 8)) 
+            + mix(0, 0.25, perlin(p, 32)) 
+            + mix(0, 0.025, perlin(p, 128));
 }
 
 
@@ -96,11 +84,11 @@ void main(void)
     const vec4 wTang = vec4(DecodeNormal(floatBitsToInt(vTexCoordAndTang.z)), 0.0f);
 
     vOut.wPos     = (params.mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
-    //vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
+    vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
     vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
     vOut.texCoord = vTexCoordAndTang.xy;
 
-    float step = 1.f / params.resolution;
+    float step = 1.f / float(params.resolution);
     vec2 dx = vec2(step, 0);
     vec2 dy = vec2(0, step);
     vOut.wPos.y = getHeight(vOut.texCoord);

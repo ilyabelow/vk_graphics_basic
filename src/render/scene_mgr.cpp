@@ -89,9 +89,9 @@ void SceneManager::LoadSceneQuadGrid(size_t resolution, float3 pos, float size)
 
   for (size_t i = 0; i < verts; i++) {
     for (size_t j = 0; j < verts; j++) {
-      mesh.vPos4f[pos_i++] = j * step;
+      mesh.vPos4f[pos_i++] = j * step - 0.5;
       mesh.vPos4f[pos_i++] = 0.f;
-      mesh.vPos4f[pos_i++] = i * step;
+      mesh.vPos4f[pos_i++] = i * step - 0.5;
       mesh.vPos4f[pos_i++] = 1.f;
 
       mesh.vNorm4f[norm_i++] = 0.;
@@ -130,9 +130,9 @@ void SceneManager::LoadSceneQuadGrid(size_t resolution, float3 pos, float size)
   camera.fov = 60.f;
   camera.nearPlane = 0.01f;
   camera.farPlane  = 100.0f;
-  camera.pos[0] = 20.0f; camera.pos[1] = 20.0f; camera.pos[2] = 10.0f;
+  camera.pos[0] = -7.0f; camera.pos[1] = 1.0f; camera.pos[2] = 0.0f;
   camera.up[0] = 0.0f; camera.up[1] = 1.0f; camera.up[2] = 0.0f;
-  camera.lookAt[0] = 0.0f; camera.lookAt[1] = 0.0f; camera.lookAt[2] = 0.0f;
+  camera.lookAt[0] = 0.0f; camera.lookAt[1] = 2.0f; camera.lookAt[2] = 0.0f;
   m_sceneCameras.push_back(camera);
 }
 
