@@ -14,6 +14,10 @@ void SimpleShadowmapRender::SetupGUIElements()
     ImGui::ColorEdit3("Meshes base color", m_uniforms.baseColor.M, ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoInputs);
     ImGui::SliderFloat3("Light source position", m_uniforms.lightPos.M, -10.f, 10.f);
 
+    ImGui::RadioButton("Original", reinterpret_cast<int*>(&m_aaMode), static_cast<int>(AAMode::Original));
+    ImGui::SameLine();
+    ImGui::RadioButton("SSAAx4", reinterpret_cast<int*>(&m_aaMode), static_cast<int>(AAMode::SSAA));
+
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
     ImGui::NewLine();

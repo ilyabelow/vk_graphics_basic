@@ -7,6 +7,11 @@
 
 void SimpleShadowmapRender::DrawFrameSimple(bool draw_gui)
 {
+  if (m_aaMode != m_aaModePrev) {
+    UpdateResourses();
+    m_aaModePrev = m_aaMode;
+  }
+
   vkWaitForFences(m_context->getDevice(), 1, &m_frameFences[m_presentationResources.currentFrame], VK_TRUE, UINT64_MAX);
   vkResetFences(m_context->getDevice(), 1, &m_frameFences[m_presentationResources.currentFrame]);
 

@@ -19,7 +19,14 @@
 #include <etna/Sampler.hpp>
 
 
+enum class AAMode: int {
+  Original = 0,
+  SSAA = 1
+};
+
 class IRenderGUI;
+
+
 
 class SimpleShadowmapRender : public IRender
 {
@@ -47,6 +54,7 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image hugeImage;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
@@ -77,6 +85,7 @@ private:
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
+  etna::GraphicsPipeline m_ssaaPipeline {};
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   
@@ -88,6 +97,8 @@ private:
   uint32_t m_height = 1024u;
   uint32_t m_framesInFlight = 2u;
   bool m_vsync = false;
+  AAMode m_aaMode = AAMode::Original;
+  AAMode m_aaModePrev = AAMode::Original;
 
   vk::PhysicalDeviceFeatures m_enabledDeviceFeatures = {};
   std::vector<const char*> m_deviceExtensions;
@@ -133,6 +144,7 @@ private:
   void CreateInstance();
   void CreateDevice(uint32_t a_deviceId);
 
+  void UpdateResourses();
   void BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, VkImage a_targetImage, VkImageView a_targetImageView);
 
   void DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp);
