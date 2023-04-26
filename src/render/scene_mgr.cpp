@@ -130,9 +130,9 @@ void SceneManager::LoadSceneQuadGrid(size_t resolution, float3 pos, float size)
   camera.fov = 60.f;
   camera.nearPlane = 0.01f;
   camera.farPlane  = 100.0f;
-  camera.pos[0] = -7.0f; camera.pos[1] = 1.0f; camera.pos[2] = 0.0f;
+  camera.pos[0] = -8.0f; camera.pos[1] = 2.0f; camera.pos[2] = 0.0f;
   camera.up[0] = 0.0f; camera.up[1] = 1.0f; camera.up[2] = 0.0f;
-  camera.lookAt[0] = 0.0f; camera.lookAt[1] = 2.0f; camera.lookAt[2] = 0.0f;
+  camera.lookAt[0] = 0.0f; camera.lookAt[1] = 3.0f; camera.lookAt[2] = 0.0f;
   m_sceneCameras.push_back(camera);
 }
 

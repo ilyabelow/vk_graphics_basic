@@ -41,7 +41,7 @@ float noise(in vec3 x) {
 }
 
 float fbm(vec3 p) {
-    return (((0.5000*noise(p))*2.02 + 0.2500*noise(p))*2.03 + 0.1250*noise(p))*.2;
+    return (((0.5000*noise(p))*2.02 + 0.2500*noise(p))*2.03 + 0.1250*noise(p))*.3;
 }
 
 
@@ -53,6 +53,7 @@ float get_depth() {
   return -(pos_view/pos_view.w).z;
 }
 
+// NOTE returns incorrect results on borders of fov
 vec3 get_dir()
 {
   vec2 uv = vOut.texCoord * 2 - vec2(1.);
@@ -118,6 +119,65 @@ bool check_AABB_intersection(vec3 origin, vec3 direction, out float t_min, out f
   return intersected;
 }
 
+// https://iquilezles.org/articles/distfunctions/
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
+}
+
+float opUnion( float d1, float d2 ) { return min(d1,d2); }
+
+float sdfT(vec3 p) {
+  return opUnion(
+    sdCapsule(p, vec3(4,6,-7), vec3(4,6,-5), .5),
+    sdCapsule(p, vec3(4,6,-6), vec3(4,2,-6), .5) );
+}
+
+float sdfY(vec3 p) {
+    return opUnion(
+    sdCapsule(p, vec3(4,2,-4), vec3(4,6,-2), .5),
+    sdCapsule(p, vec3(4,6,-4), vec3(4,4,-3), .5) );
+}
+
+float sdfM(vec3 p) {
+    return
+    opUnion(
+    opUnion(sdCapsule(p, vec3(4,2,-1.33), vec3(4,6,-0.66), .5),
+            sdCapsule(p, vec3(4,6,-0.66), vec3(4,5,0),     .5)
+            ),
+    opUnion(sdCapsule(p, vec3(4,5,0), vec3(4,6, 0.66),     .5), 
+            sdCapsule(p, vec3(4,6,0.66), vec3(4,2,1.33),   .5)) 
+    );
+}
+
+float sdfA(vec3 p) {
+    return 
+    opUnion(
+            sdCapsule(p, vec3(4,3,2.5), vec3(4,3,3.5), .5),
+    opUnion(sdCapsule(p, vec3(4,2,2), vec3(4,6,3), .5), 
+            sdCapsule(p, vec3(4,6,3), vec3(4,2,4), .5))
+    );
+}
+
+float sdfH(vec3 p) {
+    return opUnion(
+            sdCapsule(p, vec3(4,4,5), vec3(4,4,7), .5),
+    opUnion(sdCapsule(p, vec3(4,2,5), vec3(4,6,5), .5), 
+            sdCapsule(p, vec3(4,2,7), vec3(4,6,7), .5)) 
+    );
+}
+
+
+float sdfTYMAH(vec3 p) {
+  return opUnion(opUnion(sdfT(p), sdfY(p)), opUnion(sdfM(p), opUnion(sdfA(p), sdfH(p))));
+}
+
+float additionalDensity(vec3 p) {
+  return exp(-sdfTYMAH(p+vec3(0, sin(Uniforms.time+p.z)*.15,sin(Uniforms.time*3+p.y*3)*0.02))*5);
+}
+
 
 float fog(vec3 p) {
   // uncomment i sampling outside aabb
@@ -131,7 +191,7 @@ float fog(vec3 p) {
   float z_dist = min(min(AABBright.z - p.z, p.z - AABBleft.z), 2) * .5; 
 
   float f = fbm(p + vec3(-0.7, 0.3, 0.2)*Uniforms.time);
-  return f * x_dist * y_dist * z_dist;
+  return (f + additionalDensity(p))* x_dist * y_dist * z_dist;
 }
 
 void main()
