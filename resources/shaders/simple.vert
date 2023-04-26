@@ -12,7 +12,6 @@ layout(push_constant) uniform params_t
 {
     mat4 mProjView;
     mat4 mModel;
-    uint resolution;
 } params;
 
 
@@ -88,7 +87,7 @@ void main(void)
     vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
     vOut.texCoord = vTexCoordAndTang.xy;
 
-    float step = 1.f / float(params.resolution);
+    float step = 1.f / 1024.f;
     vec2 dx = vec2(step, 0);
     vec2 dy = vec2(0, step);
     vOut.wPos.y = getHeight(vOut.texCoord);

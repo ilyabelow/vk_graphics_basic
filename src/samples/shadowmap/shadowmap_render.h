@@ -47,7 +47,11 @@ private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image fogMap;     // Texture for fog itself
+  etna::Image fogDepth;   // Same as mainViewDepth, but lower resolution
   etna::Sampler defaultSampler;
+  etna::Sampler linearSampler;
+
   etna::Buffer constants;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
@@ -67,7 +71,6 @@ private:
   {
     float4x4 projView;
     float4x4 model;
-    shader_uint resolution = 1024;
   } pushConst2M;
 
   float4x4 m_worldViewProj;
@@ -78,7 +81,9 @@ private:
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
-
+  etna::GraphicsPipeline m_basicFogPipeline {};
+  etna::GraphicsPipeline m_basicBlendPipeline {};
+  
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   
   VkSurfaceKHR m_surface = VK_NULL_HANDLE;

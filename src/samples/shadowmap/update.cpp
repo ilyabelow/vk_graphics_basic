@@ -20,9 +20,15 @@ void SimpleShadowmapRender::UpdateView()
   auto mProj = projectionMatrix(m_cam.fov, aspect, 0.1f, 1000.0f);
   auto mLookAt = LiteMath::lookAt(m_cam.pos, m_cam.lookAt, m_cam.up);
   auto mWorldViewProj = mProjFix * mProj * mLookAt;
-  
+
+  // Ideally I would use push constants for this, but all matrices are already calculated here
+  m_uniforms.viewInverse = LiteMath::inverse4x4(mLookAt);
+  m_uniforms.projInverse = LiteMath::inverse4x4(mProjFix * mProj);
+  m_uniforms.cameraPos   = m_cam.pos;
+  m_uniforms.fov         = m_cam.fov; // can be changed with mouse wheel
+
   m_worldViewProj = mWorldViewProj;
-  
+
   ///// calc light matrix
   //
   if(m_light.usePerspectiveM)
