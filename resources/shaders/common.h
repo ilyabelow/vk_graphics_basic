@@ -47,8 +47,6 @@ struct UniformParams
   shader_mat4  lightMatrix;
   shader_vec3  lightPos;
   shader_float time;
-  shader_vec3  baseColor;
-  shader_bool  animateLightColor;
 };
 
 #endif // VK_GRAPHICS_BASIC_COMMON_H

@@ -50,6 +50,12 @@ private:
   etna::Sampler defaultSampler;
   etna::Buffer constants;
 
+  struct {
+    etna::Image position;
+    etna::Image albedo;
+    etna::Image normal;
+  } gBuffer;
+
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
   struct
@@ -67,6 +73,7 @@ private:
   {
     float4x4 projView;
     float4x4 model;
+    uint32_t modelId;
   } pushConst2M;
 
   float4x4 m_worldViewProj;
@@ -75,7 +82,8 @@ private:
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
 
-  etna::GraphicsPipeline m_basicForwardPipeline {};
+  etna::GraphicsPipeline m_deferPipeline {};
+  etna::GraphicsPipeline m_resolvePipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
