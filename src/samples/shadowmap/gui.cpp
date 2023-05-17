@@ -12,6 +12,10 @@ void SimpleShadowmapRender::SetupGUIElements()
     ImGui::Begin("Simple render settings");
 
     ImGui::SliderFloat3("Light source position", m_uniforms.lightPos.M, -10.f, 10.f);
+    ImGui::Checkbox("Use subsurface scattering", reinterpret_cast<bool*>(&m_uniforms.useSSS));
+    if (m_uniforms.useSSS) {
+      ImGui::SliderFloat("Intencity", &m_uniforms.SSSintencity, 1., 32.);
+    }
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 

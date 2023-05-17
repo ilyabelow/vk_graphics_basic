@@ -21,6 +21,21 @@ layout (binding = 2) uniform sampler2D positionMap;
 layout (binding = 3) uniform sampler2D normalMap;
 layout (binding = 4) uniform sampler2D albedoMap;
 
+// http://www.iryoku.com/translucency/downloads/Real-Time-Realistic-Skin-Translucency.pdf
+vec3 T(float s) {
+  return vec3(0.233, 0.455, 0.649)  * exp(-s*s/0.0064) +
+         vec3(0.1, 0.336, 0.344)    * exp(-s*s/0.0484) +
+         vec3(0.118, 0.198, 0.0)    * exp(-s*s/0.187) +
+         vec3(0.113, 0.007, 0.007)  * exp(-s*s/0.567) +
+         vec3(0.358, 0.004, 0.0)    * exp(-s*s/1.99) +
+         vec3(0.078, 0.0, 0.0)      * exp(-s*s/7.41);
+}
+
+float linearizeDepth(vec3 ndc) {
+  vec4 inversed = Params.projInverse * vec4(ndc, 1.f);
+  return (inversed.xyz / inversed.w).z;
+}
+
 void main()
 {
   vec3 pos = texture(positionMap, surf.texCoord).xyz;
@@ -43,4 +58,14 @@ void main()
   vec3 lightDir   = normalize(Params.lightPos - pos);
   vec4 lightColor = max(dot(norm, lightDir), 0.0f) * lightColor2;
   out_fragColor   = (lightColor*shadow + vec4(0.1f)) * vec4(albedo, 1.0f);
+
+  if (Params.useSSS) {
+    const float shadowDepthLinear = linearizeDepth(vec3(posLightSpaceNDC.xy, textureLod(shadowMap, shadowTexCoord, 0).x));
+    const float cameraDepthLinear = (Params.lightView * vec4(pos, 1.0f)).z;
+
+    const float s = abs(shadowDepthLinear - cameraDepthLinear) / Params.SSSintencity;
+    const float E = max(0.3 + dot(-norm, lightDir), 0.0);
+    const vec4 transmittance = vec4(T(s), 1.0f) * lightColor2 * vec4(albedo, 1.f) * E;
+    out_fragColor += transmittance;
+  }
 }

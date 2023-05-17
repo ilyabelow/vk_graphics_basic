@@ -5,6 +5,8 @@
 
 SimpleShadowmapRender::SimpleShadowmapRender(uint32_t a_width, uint32_t a_height) : m_width(a_width), m_height(a_height)
 {
+  m_uniforms.useSSS = false;
+  m_uniforms.SSSintencity = 5.f;
 }
 
 void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t)
