@@ -5,6 +5,8 @@
 
 SimpleShadowmapRender::SimpleShadowmapRender(uint32_t a_width, uint32_t a_height) : m_width(a_width), m_height(a_height)
 {
+  m_uniforms.enableRsm = true;
+  m_uniforms.samplesCount = m_maxSamples / 4;
 }
 
 void SimpleShadowmapRender::InitVulkan(const char** a_instanceExtensions, uint32_t a_instanceExtensionsCount, uint32_t)

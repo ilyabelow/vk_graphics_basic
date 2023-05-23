@@ -16,10 +16,39 @@ layout(binding = 0, set = 0) uniform AppData
   UniformParams Params;
 };
 
-layout (binding = 1) uniform sampler2D shadowMap;
-layout (binding = 2) uniform sampler2D positionMap;
-layout (binding = 3) uniform sampler2D normalMap;
-layout (binding = 4) uniform sampler2D albedoMap;
+layout (binding = 1) uniform sampler2D positionMap;
+layout (binding = 2) uniform sampler2D normalMap;
+layout (binding = 3) uniform sampler2D albedoMap;
+
+layout (binding = 4) uniform sampler2D shadowMap;
+
+layout (binding = 5) uniform sampler2D positionLight;
+layout (binding = 6) uniform sampler2D normalLight;
+layout (binding = 7) uniform sampler2D fluxLight;
+
+layout (binding = 8) buffer samplesBuffer
+{
+  vec2 samples[];
+};
+
+vec4 sample_flux(vec3 pos, vec3 norm, vec2 coordInLightSpace) {
+  float depth = length(pos - Params.lightPos);
+
+  float R = .5 / depth;
+  float power = 0.15;
+  vec3 flux = vec3(0);
+  for (int i = 0; i < Params.samplesCount; i++) {
+    vec2 coord = coordInLightSpace + samples[i] * R;
+    vec3 sampledPos = texture(positionLight, coord).xyz;
+    vec3 sampledNorm = texture(normalLight, coord).xyz;
+    vec3 sampledFlux = texture(fluxLight, coord).xyz;
+
+    flux += sampledFlux* max(0, dot(sampledNorm, pos - sampledPos)) * max(0, dot(norm, sampledPos - pos)) / pow(length(sampledPos - pos), 4.); 
+  }
+
+  flux /= float(Params.samplesCount);
+  return vec4(clamp(flux * power, 0, 1), 1.);
+}
 
 void main()
 {
@@ -43,4 +72,7 @@ void main()
   vec3 lightDir   = normalize(Params.lightPos - pos);
   vec4 lightColor = max(dot(norm, lightDir), 0.0f) * lightColor2;
   out_fragColor   = (lightColor*shadow + vec4(0.1f)) * vec4(albedo, 1.0f);
+  if (Params.enableRsm) {
+    out_fragColor += sample_flux(pos, norm, shadowTexCoord);
+  }
 }

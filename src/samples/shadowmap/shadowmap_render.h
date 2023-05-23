@@ -46,15 +46,22 @@ public:
 private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
-  etna::Image shadowMap;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+  etna::Buffer samples;
 
   struct {
     etna::Image position;
     etna::Image albedo;
     etna::Image normal;
   } gBuffer;
+
+  struct {
+    etna::Image position;
+    etna::Image flux;
+    etna::Image normal;
+    etna::Image depth;
+  } rsm;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -95,6 +102,7 @@ private:
   uint32_t m_width  = 1024u;
   uint32_t m_height = 1024u;
   uint32_t m_framesInFlight = 2u;
+  const uint32_t m_maxSamples = 256;
   bool m_vsync = false;
 
   vk::PhysicalDeviceFeatures m_enabledDeviceFeatures = {};
